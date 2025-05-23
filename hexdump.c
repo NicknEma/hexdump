@@ -94,69 +94,126 @@ read_file_or_print_error(char *name) {
 /////////////////
 //~ Main
 
+#define DEFAULT_BYTES_PER_ROW 16
+
 int main(int argc, char **argv) {
 	
-	switch (argc) {
-		default:
-		case 1: {
-			printf("Usage:\n  hexdump.exe <filename>\n");
-		} break;
+	if (argc == 1) {
+		printf("Prints a hexadecimal view of one or more files.\n"
+			   "Usage:\n"
+			   "  hexdump.exe [filename] [-help] [-width:<width>]\n");
+	} else {
 		
-		case 2: {
-			char *name = argv[1];
-			Read_File_Result result = read_file_or_print_error(name);
-			if (result.valid) {
-				int bytes_per_row = 16;
-				SliceU8 file = result.data;
+		bool help_mode = false;
+		int  width = DEFAULT_BYTES_PER_ROW;
+		
+		int  file_count = 0;
+		
+		for (int argi = 1; argi < argc; argi += 1) {
+			char *argn = argv[argi];
+			if (argn[0] == '-') {
+				char *flag = argn + 1;
 				
-				for (i64 offset = 0; offset < file.len; offset += bytes_per_row) {
-					i64 eof    = min(offset + bytes_per_row, file.len);
-					i64 amount = eof - offset;
+				if (strcmp(flag, "help") == 0) {
+					help_mode = true;
 					
-					char buffer[1024];
-					int  buffer_used = snprintf(buffer, array_count(buffer),
-												"%08llx\t", offset);
+					// The -help flag has priority over everything. If it is specified,
+					// nothing else matters.
+					break;
+				} else if (strcmp(flag, "width") == 0) {
+					fprintf(stderr, "Unimplemented.\n");
+				} else {
+					fprintf(stderr, "Ignoring unknown flag '-%s'. Try '-help' for a list of possible flags.\n", flag);
+				}
+			} else {
+				file_count += 1;
+			}
+		}
+		
+		if (help_mode) {
+			printf("TODO: Help text\n");
+		} else {
+			// Main codepath: dump files.
+			
+			if (file_count == 0) {
+				// No input files, but there were other arguments:
+				// It's an error.
+				
+				fprintf(stderr, "No input files specified. Try again and specify at least one input file.\n");
+			} else {
+				char **file_names = malloc(file_count * sizeof(char *));
+				assert(file_names);
+				
+				for (int argi = 1, file_index = 0; argi < argc; argi += 1) {
+					char *argn = argv[argi];
 					
-					{
-						for (i64 byte_index = 0; byte_index < amount; byte_index += 1) {
-							assert(offset + byte_index < file.len);
-							u8 b = file.data[offset + byte_index];
-							
-							buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
-													"%02x ", b);
-						}
-						
-						for (i64 byte_index = amount; byte_index < bytes_per_row; byte_index += 1) {
-							buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
-													"   ");
-						}
-						
-						buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
-												"\t");
+					if (argn[0] != '-') {
+						file_names[file_index] = argn;
+						file_index += 1;
 					}
+				}
+				
+				for (int file_index = 0; file_index < file_count; file_index += 1) {
+					char *name = file_names[file_index];
+					printf("%s\n", name);
 					
-					{
-						for (i64 byte_index = 0; byte_index < amount; byte_index += 1) {
-							assert(offset + byte_index < file.len);
-							u8 b = file.data[offset + byte_index];
+					Read_File_Result result = read_file_or_print_error(name);
+					if (result.valid) {
+						int bytes_per_row = 16;
+						SliceU8 file = result.data;
+						
+						for (i64 offset = 0; offset < file.len; offset += bytes_per_row) {
+							i64 eof    = min(offset + bytes_per_row, file.len);
+							i64 amount = eof - offset;
 							
-							if (!isprint(b)) {
-								b = ' ';
+							char buffer[1024];
+							int  buffer_used = snprintf(buffer, array_count(buffer),
+														"%08llx\t", offset);
+							
+							{
+								for (i64 byte_index = 0; byte_index < amount; byte_index += 1) {
+									assert(offset + byte_index < file.len);
+									u8 b = file.data[offset + byte_index];
+									
+									buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
+															"%02x ", b);
+								}
+								
+								for (i64 byte_index = amount; byte_index < bytes_per_row; byte_index += 1) {
+									buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
+															"   ");
+								}
+								
+								buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
+														"\t");
 							}
 							
-							buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
-													"%c", b);
+							{
+								for (i64 byte_index = 0; byte_index < amount; byte_index += 1) {
+									assert(offset + byte_index < file.len);
+									u8 b = file.data[offset + byte_index];
+									
+									if (!isprint(b)) {
+										b = ' ';
+									}
+									
+									buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
+															"%c", b);
+								}
+							}
+							
+							printf("%.*s\n", cast(int) array_count(buffer), buffer);
 						}
+						
+						free(result.data.data);
 					}
 					
-					printf("%.*s\n", cast(int) array_count(buffer), buffer);
+					printf("\n");
 				}
+				
+				// free(file_names);
 			}
-			
-			// We never free the memory allocated by read_file_or_print_error() because
-			// the process is going to terminate soon and everything will be released
-			// automatically.
-		} break;
+		}
 	}
 	
 	return 0;
