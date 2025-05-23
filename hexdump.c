@@ -24,6 +24,85 @@ struct SliceU8 {
 	u8  *data;
 };
 
+#define cstr_equals(a, b) (strcmp(a, b) == 0)
+
+typedef struct String String;
+struct String {
+	i64  len;
+	u8  *data;
+};
+
+static String
+string(u8 *data, i64 len) {
+	String result = {
+		.data = data,
+		.len  = len,
+	};
+	return result;
+}
+
+#define string_lit_expand(s)   s, (sizeof(s)-1)
+#define string_expand(s)       cast(int)(s).len, (s).data
+
+#define string_from_lit(s)     string(s, sizeof(s)-1)
+#define string_from_cstring(s) string(s, strlen(s))
+
+#define string_equals(a, b)      (((a).len == (b).len) && (memcmp((a).data, (b).data, (a).len) == 0))
+
+static bool
+string_starts_with(String a, String b) {
+	bool result = false;
+	if (a.len >= b.len) {
+		int memcmp_result = memcmp(a.data, b.data, b.len);
+		result = memcmp_result == 0;
+	}
+	return result;
+}
+
+static String
+string_skip(String s, i64 amount) {
+	if (amount > s.len) {
+		amount = s.len;
+	}
+	
+	s.data += amount;
+	s.len  -= amount;
+	
+	return s;
+}
+
+static String
+string_chop(String s, i64 amount) {
+	if (amount > s.len) {
+		amount = s.len;
+	}
+	
+	s.len -= amount;
+	
+	return s;
+}
+
+static String
+string_chop_at(String s, i64 index) {
+	if (index < s.len && index > -1) {
+		s.len = index;
+	}
+	
+	return s;
+}
+
+static i64
+string_find_first(String s, u8 c) {
+	i64 result = -1;
+	for (i64 i = 0; i < s.len; i += 1) {
+		if (s.data[i] == c) {
+			result = i;
+			break;
+		}
+	}
+	return result;
+}
+
 /////////////////
 //~ fsize
 
@@ -110,20 +189,30 @@ int main(int argc, char **argv) {
 		int  file_count = 0;
 		
 		for (int argi = 1; argi < argc; argi += 1) {
-			char *argn = argv[argi];
-			if (argn[0] == '-') {
-				char *flag = argn + 1;
+			String argn = string_from_cstring(argv[argi]);
+			if (argn.data[0] == '-') {
 				
-				if (strcmp(flag, "help") == 0) {
+				i64 sep_index = string_find_first(argn, ':');
+				String flag   = string_skip(string_chop_at(argn, sep_index >= 0 ? sep_index : argn.len), 1);
+				String rest   = string_skip(argn, sep_index >= 0 ? sep_index + 1 : argn.len);
+				
+				if (string_equals(flag, string_from_lit("help"))) {
 					help_mode = true;
 					
 					// The -help flag has priority over everything. If it is specified,
 					// nothing else matters.
 					break;
-				} else if (strcmp(flag, "width") == 0) {
+				} else if (string_equals(flag, string_from_lit("width"))) {
+					
+					if (rest.len > 0) {
+						// width = atoi(rest.data); or something like this
+					} else {
+						fprintf(stderr, "Flag '-width' requires an integer argument, e.g. '-width:12'.\n");
+					}
+					
 					fprintf(stderr, "Unimplemented.\n");
 				} else {
-					fprintf(stderr, "Ignoring unknown flag '-%s'. Try '-help' for a list of possible flags.\n", flag);
+					fprintf(stderr, "Ignoring unknown flag '-%.*s'. Try '-help' for a list of possible flags.\n", string_expand(flag));
 				}
 			} else {
 				file_count += 1;
