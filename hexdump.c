@@ -157,14 +157,17 @@ read_file_or_print_error(char *name) {
 			if (read_amount == result.data.len || feof(handle)) {
 				result.valid = true;
 			} else {
-				perror("fread");
+				fprintf(stderr, "Could not read the file '%s': %s", name, strerror(errno));
 			}
 		} else {
-			perror("fsize");
+			fprintf(stderr, "Could not read the file '%s': %s", name, strerror(errno));
+			
+			// Actually we didn't even try to read the file, we just failed to query its size,
+			// but the user doesn't care about this since it's an implementation detail.
 		}
 		fclose(handle);
 	} else {
-		perror("fopen");
+		fprintf(stderr, "Could not open the file '%s': %s", name, strerror(errno));
 	}
 	
 	return result;
