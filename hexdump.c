@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 
 #define cast(t) (t)
@@ -20,7 +21,7 @@ typedef int64_t i64;
 
 typedef struct SliceU8 SliceU8;
 struct SliceU8 {
-	u64  len;
+	i64  len;
 	u8  *data;
 };
 
@@ -42,8 +43,8 @@ string(u8 *data, i64 len) {
 #define string_lit_expand(s)   s, (sizeof(s)-1)
 #define string_expand(s)       cast(int)(s).len, (s).data
 
-#define string_from_lit(s)     string(s, sizeof(s)-1)
-#define string_from_cstring(s) string(s, strlen(s))
+#define string_from_lit(s)     string(cast(u8 *)s, sizeof(s)-1)
+#define string_from_cstring(s) string(cast(u8 *)s, strlen(s))
 
 #define string_equals(a, b)    (((a).len == (b).len) && (memcmp((a).data, (b).data, (a).len) == 0))
 
@@ -147,7 +148,8 @@ read_file_or_print_error(char *name) {
 		i64 size = fsize(handle);
 		if (errno == 0) {
 			result.data.len  = size;
-			result.data.data = malloc(size); // Caller is responsible for freeing
+			result.data.data = malloc(size * sizeof(u8)); // Caller is responsible for freeing
+			assert(result.data.data);
 			i64 read_amount  = fread(result.data.data,
 									 sizeof(u8),
 									 result.data.len,
@@ -324,12 +326,13 @@ int main(int argc, char **argv) {
 			
 			for (int file_index = 0; file_index < file_count; file_index += 1) {
 				char *name = file_names[file_index];
-				printf("%s\n", name);
 				
 				Read_File_Result result = read_file_or_print_error(name);
 				if (result.valid) {
 					int bytes_per_row = width;
 					SliceU8 file = result.data;
+					
+					printf("%s\n", name);
 					
 					for (i64 offset = 0; offset < file.len; offset += bytes_per_row) {
 						i64 eof    = min(offset + bytes_per_row, file.len);
