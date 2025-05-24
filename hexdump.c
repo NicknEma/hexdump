@@ -173,12 +173,23 @@ read_file_or_print_error(char *name) {
 
 #define DEFAULT_BYTES_PER_ROW 16
 
+#define INFO_TEXT \
+"Prints a hexadecimal view of one or more files.\n" \
+"Usage:\n" \
+"  hexdump.exe [filename] [-help] [-width:<width>]\n"
+
+#define HELP_TEXT \
+"  -help            display this text\n" \
+"  -width:<width>   set how many bytes are printed per row\n" \
+"     Example: '-width:12'\n" \
+"\n" \
+"Example:\n" \
+"  hexdump.exe my_file.txt my_other_file.png -width:12\n"
+
 int main(int argc, char **argv) {
 	
 	if (argc == 1) {
-		printf("Prints a hexadecimal view of one or more files.\n"
-			   "Usage:\n"
-			   "  hexdump.exe [filename] [-help] [-width:<width>]\n");
+		printf(INFO_TEXT);
 	} else {
 		
 		bool args_ok = true;
@@ -252,7 +263,7 @@ int main(int argc, char **argv) {
 		}
 		
 		if (help_mode) {
-			printf("TODO: Help text\n");
+			printf(INFO_TEXT "\n" HELP_TEXT);
 		} else if (args_ok) {
 			// Main codepath: dump files.
 			
