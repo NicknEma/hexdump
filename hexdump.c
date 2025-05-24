@@ -176,7 +176,7 @@ read_file_or_print_error(char *name) {
 /////////////////
 //~ Main
 
-#define DEFAULT_BYTES_PER_ROW 16
+#define DEFAULT_BYTES_PER_ROW 32
 
 #define     MAX_BYTES_PER_ROW 64
 #define     MIN_BYTES_PER_ROW  1
@@ -189,10 +189,10 @@ read_file_or_print_error(char *name) {
 #define HELP_TEXT \
 "  -help            display this text\n" \
 "  -width:<width>   set how many bytes are printed per row\n" \
-"     Example: '-width:12'\n" \
+"     Example: '-width:40'\n" \
 "\n" \
 "Example:\n" \
-"  hexdump.exe my_file.txt my_other_file.png -width:12\n"
+"  hexdump.exe my_file.txt my_other_file.png -width:40\n"
 
 int main(int argc, char **argv) {
 	
@@ -235,7 +235,7 @@ int main(int argc, char **argv) {
 							rest = string_skip(rest, 1);
 							
 							if (rest.len == 0) {
-								fprintf(stderr, "The argument for '-width' must be an integer number, e.g. '-width:12'.\n");
+								fprintf(stderr, "The argument for '-width' must be an integer number, e.g. '-width:40'.\n");
 								width_parsing_ok = false;
 							}
 						}
@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
 						if (width_parsing_ok) {
 							for (int char_index = 0; char_index < rest.len; char_index += 1) {
 								if (!isdigit(rest.data[char_index])) {
-									fprintf(stderr, "The argument for '-width' must be an integer number, e.g. '-width:12'.\n");
+									fprintf(stderr, "The argument for '-width' must be an integer number, e.g. '-width:40'.\n");
 									width_parsing_ok = false;
 									break;
 								}
@@ -252,7 +252,7 @@ int main(int argc, char **argv) {
 						
 						if (width_parsing_ok) {
 							if (sign_char == '-') {
-								fprintf(stderr, "The argument for '-width' must be a positive number, e.g. '-width:12'.\n");
+								fprintf(stderr, "The argument for '-width' must be a positive number, e.g. '-width:40'.\n");
 								width_parsing_ok = false;
 							}
 						}
@@ -285,7 +285,7 @@ int main(int argc, char **argv) {
 						}
 						
 					} else {
-						fprintf(stderr, "Flag '-width' requires an integer argument, e.g. '-width:12'.\n");
+						fprintf(stderr, "Flag '-width' requires an integer argument, e.g. '-width:40'.\n");
 						args_ok = false;
 						break;
 					}
@@ -342,7 +342,7 @@ int main(int argc, char **argv) {
 						i64 amount = eof - offset;
 						
 						// The buffer needs to be big enough to hold:
-						//   8 + \t + (2*MAX_BYTES_PER_ROW + MAX_BYTES_PER_ROW-1) + \t + MAX_BYTES_PER_ROW
+						//   8 + \t + (2*MAX_BYTES_PER_ROW + MAX_BYTES_PER_ROW/8-1 + MAX_BYTES_PER_ROW-1) + \t + MAX_BYTES_PER_ROW
 						
 						char buffer[1024];
 						int  buffer_used = snprintf(buffer, array_count(buffer),
@@ -357,11 +357,16 @@ int main(int argc, char **argv) {
 								
 								buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
 														"%02x ", b);
+								
+								if (((byte_index+1) % 8 == 0) && (byte_index < amount-1)) {
+									buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
+															" ");
+								}
 							}
 							
 							for (i64 byte_index = amount; byte_index < bytes_per_row; byte_index += 1) {
 								buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
-														"   ");
+														"   "); // Print padding after EOF
 							}
 							
 							buffer_used += snprintf(buffer + buffer_used, array_count(buffer) - buffer_used,
