@@ -24,8 +24,6 @@ struct SliceU8 {
 	u8  *data;
 };
 
-#define cstr_equals(a, b) (strcmp(a, b) == 0)
-
 typedef struct String String;
 struct String {
 	i64  len;
@@ -47,7 +45,7 @@ string(u8 *data, i64 len) {
 #define string_from_lit(s)     string(s, sizeof(s)-1)
 #define string_from_cstring(s) string(s, strlen(s))
 
-#define string_equals(a, b)      (((a).len == (b).len) && (memcmp((a).data, (b).data, (a).len) == 0))
+#define string_equals(a, b)    (((a).len == (b).len) && (memcmp((a).data, (b).data, (a).len) == 0))
 
 static bool
 string_starts_with(String a, String b) {
@@ -183,8 +181,10 @@ int main(int argc, char **argv) {
 			   "  hexdump.exe [filename] [-help] [-width:<width>]\n");
 	} else {
 		
+		bool args_ok = true;
+		
 		bool help_mode = false;
-		int  width = DEFAULT_BYTES_PER_ROW;
+		int  width = -1;
 		
 		int  file_count = 0;
 		
@@ -203,16 +203,48 @@ int main(int argc, char **argv) {
 					// nothing else matters.
 					break;
 				} else if (string_equals(flag, string_from_lit("width"))) {
-					
-					if (rest.len > 0) {
-						// width = atoi(rest.data); or something like this
+					if (width == -1) {
+						if (rest.len > 0) {
+							
+							// TODO: Better control flow?
+							
+							bool all_digits = true;
+							for (int char_index = 0; char_index < rest.len; char_index += 1) {
+								if (!isdigit(rest.data[char_index])) {
+									all_digits = false;
+									break;
+								}
+							}
+							
+							if (all_digits) {
+								errno = 0;
+								int width_arg = atoi(rest.data);
+								if (errno == 0 && width_arg > 0) {
+									width = width_arg;
+								} else if (errno == ERANGE && width_arg == INT_MAX) {
+									fprintf(stderr, "Too thicc"); // TODO: Better error message
+									args_ok = false;
+									break;
+								} else {
+									fprintf(stderr, "Too smol"); // TODO: Better error message
+									args_ok = false;
+									break;
+								}
+							} else {
+								fprintf(stderr, "The argument for '-width' must be an integer number, e.g. '-width:12'.\n");
+								args_ok = false;
+								break;
+							}
+						} else {
+							fprintf(stderr, "Flag '-width' requires an integer argument, e.g. '-width:12'.\n");
+							args_ok = false;
+							break;
+						}
 					} else {
-						fprintf(stderr, "Flag '-width' requires an integer argument, e.g. '-width:12'.\n");
+						fprintf(stderr, "Ignoring repeated flag '-width'.\n");
 					}
-					
-					fprintf(stderr, "Unimplemented.\n");
 				} else {
-					fprintf(stderr, "Ignoring unknown flag '-%.*s'. Try '-help' for a list of possible flags.\n", string_expand(flag));
+					fprintf(stderr, "Ignoring unknown flag '-%.*s'. Try '-help' for a list of possible flags.\n", string_expand(flag)); // TODO: "Did you mean ...?"
 				}
 			} else {
 				file_count += 1;
@@ -221,8 +253,14 @@ int main(int argc, char **argv) {
 		
 		if (help_mode) {
 			printf("TODO: Help text\n");
-		} else {
+		} else if (args_ok) {
 			// Main codepath: dump files.
+			
+			if (width == -1) {
+				width = DEFAULT_BYTES_PER_ROW;
+			}
+			
+			assert(width > 0);
 			
 			if (file_count == 0) {
 				// No input files, but there were other arguments:
@@ -248,7 +286,7 @@ int main(int argc, char **argv) {
 					
 					Read_File_Result result = read_file_or_print_error(name);
 					if (result.valid) {
-						int bytes_per_row = 16;
+						int bytes_per_row = width;
 						SliceU8 file = result.data;
 						
 						for (i64 offset = 0; offset < file.len; offset += bytes_per_row) {
